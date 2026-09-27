@@ -12,9 +12,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
-# ============================================================
-# FASTAPI
-# ============================================================
+# --------------------------------------------------
+# FASTAPI APP
+# --------------------------------------------------
 
 app = FastAPI(
     title="Google Maps Scraping API",
@@ -22,9 +22,9 @@ app = FastAPI(
 )
 
 
-# ============================================================
-# MODELS
-# ============================================================
+# --------------------------------------------------
+# RESPONSE MODELS
+# --------------------------------------------------
 
 class Review(BaseModel):
     reviewer_name: str
@@ -43,12 +43,11 @@ class PlaceResponse(BaseModel):
     place: PlaceData
 
 
-# ============================================================
+# --------------------------------------------------
 # CLEAN TEXT
-# ============================================================
+# --------------------------------------------------
 
 def clean_text(text):
-
     if not text:
         return None
 
@@ -58,19 +57,22 @@ def clean_text(text):
     return text.strip()
 
 
-# ============================================================
-# GET PLACE NAME
-# ============================================================
+# --------------------------------------------------
+# PLACE NAME
+# --------------------------------------------------
 
 def get_place_name(driver, search_name):
 
     try:
-
         element = WebDriverWait(
-            driver, 15
+            driver,
+            15
         ).until(
             EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "h1.DUwDvf")
+                (
+                    By.CSS_SELECTOR,
+                    "h1.DUwDvf"
+                )
             )
         )
 
@@ -79,7 +81,6 @@ def get_place_name(driver, search_name):
     except Exception:
 
         try:
-
             element = driver.find_element(
                 By.TAG_NAME,
                 "h1"
@@ -88,33 +89,30 @@ def get_place_name(driver, search_name):
             return clean_text(element.text)
 
         except Exception:
-
             return search_name
 
 
-# ============================================================
-# GET ADDRESS
-# ============================================================
+# --------------------------------------------------
+# ADDRESS
+# --------------------------------------------------
 
 def get_address(driver):
 
     selectors = [
         'button[data-item-id="address"]',
-        'button[data-item-id*="address"]'
+        'button[data-item-id*="address"]',
+        '[data-item-id="address"]'
     ]
 
     for selector in selectors:
 
         try:
-
             element = driver.find_element(
                 By.CSS_SELECTOR,
                 selector
             )
 
-            text = clean_text(
-                element.text
-            )
+            text = clean_text(element.text)
 
             if text:
                 return text
@@ -125,31 +123,63 @@ def get_address(driver):
     return None
 
 
-# ============================================================
-# GET RATING
-# ============================================================
+# --------------------------------------------------
+# RATING
+# --------------------------------------------------
 
 def get_rating(driver):
 
-    try:
+    selectors = [
+        'div.F7nice span[aria-hidden="true"]',
+        'div.F7nice span',
+        '[role="img"][aria-label*="star" i]'
+    ]
 
-        element = driver.find_element(
-            By.CSS_SELECTOR,
-            'div.F7nice span[aria-hidden="true"]'
-        )
+    for selector in selectors:
 
-        return clean_text(
-            element.text
-        )
+        try:
 
-    except Exception:
+            elements = driver.find_elements(
+                By.CSS_SELECTOR,
+                selector
+            )
 
-        return None
+            for element in elements:
+
+                text = clean_text(element.text)
+
+                if text:
+                    match = re.search(
+                        r"(\d+(?:\.\d+)?)",
+                        text
+                    )
+
+                    if match:
+                        return match.group(1)
+
+                aria = element.get_attribute(
+                    "aria-label"
+                )
+
+                if aria:
+
+                    match = re.search(
+                        r"(\d+(?:\.\d+)?)",
+                        aria
+                    )
+
+                    if match:
+                        return match.group(1)
+
+        except Exception:
+            continue
+
+    return None
 
 
-# ============================================================
-# GET REVIEW COUNT
-# ============================================================
+# --------------------------------------------------
+# REVIEW COUNT
+# --------------------------------------------------
 
 def get_review_count(driver):
 
@@ -174,12 +204,17 @@ def get_review_count(driver):
             if aria:
 
                 match = re.search(
-                    r"([\d,]+)",
+                    r"(\d[\d,]*)",
                     aria
                 )
 
                 if match:
-                    return match.group(1)
+
+                    value = match.group(1)
+                    value = value.replace(",", "")
+
+                    if value.isdigit():
+                        return value
 
     except Exception:
         pass
@@ -202,12 +237,17 @@ def get_review_count(driver):
             if text:
 
                 numbers = re.findall(
-                    r"[\d,]+",
+                    r"\d[\d,]*",
                     text
                 )
 
                 if len(numbers) >= 2:
-                    return numbers[-1]
+
+                    value = numbers[-1]
+                    value = value.replace(",", "")
+
+                    if value.isdigit():
+                        return value
 
     except Exception:
         pass
@@ -216,22 +256,29 @@ def get_review_count(driver):
     return None
 
 
-# ============================================================
+# --------------------------------------------------
 # OPEN REVIEWS
-# ============================================================
+# --------------------------------------------------
 
 def open_reviews(driver):
+
+    print("Trying to open reviews...")
 
     selectors = [
 
         'button[jsaction*="pane.reviewChart.moreReviews"]',
 
-        'button[aria-label*="reviews"]',
+        'button[aria-label*="reviews" i]',
 
-        'button[aria-label*="Reviews"]',
+        'button[aria-label*="review" i]',
 
-        'div.F7nice button'
+        'div[role="button"][aria-label*="reviews" i]',
 
+        'div[role="button"][aria-label*="review" i]',
+
+        'a[href*="/reviews"]',
+
+        'a[href*="reviews"]'
     ]
 
 
@@ -239,14 +286,43 @@ def open_reviews(driver):
 
         try:
 
-            buttons = driver.find_elements(
+            elements = driver.find_elements(
                 By.CSS_SELECTOR,
                 selector
             )
 
-            for button in buttons:
+            print(
+                "Selector:",
+                selector,
+                "Found:",
+                len(elements)
+            )
+
+
+            for element in elements:
 
                 try:
+
+                    if not element.is_displayed():
+                        continue
+
+
+                    aria = element.get_attribute(
+                        "aria-label"
+                    )
+
+                    text = clean_text(
+                        element.text
+                    )
+
+                    print(
+                        "Review element:",
+                        "aria=",
+                        aria,
+                        "text=",
+                        text
+                    )
+
 
                     driver.execute_script(
                         """
@@ -254,7 +330,7 @@ def open_reviews(driver):
                             block: 'center'
                         });
                         """,
-                        button
+                        element
                     )
 
                     time.sleep(1)
@@ -262,47 +338,182 @@ def open_reviews(driver):
 
                     driver.execute_script(
                         "arguments[0].click();",
-                        button
+                        element
+                    )
+
+                    print(
+                        "Review button clicked"
                     )
 
                     time.sleep(4)
 
 
-                    reviews = driver.find_elements(
+                    review_elements = driver.find_elements(
                         By.CSS_SELECTOR,
-                        "div.jftiEf"
+                        'div[data-review-id], div.jftiEf'
                     )
 
-                    if reviews:
+                    print(
+                        "Review elements after click:",
+                        len(review_elements)
+                    )
 
-                        print(
-                            "Reviews opened:",
-                            len(reviews)
-                        )
 
+                    if review_elements:
                         return True
 
-                except Exception:
+
+                except Exception as error:
+
+                    print(
+                        "Click error:",
+                        error
+                    )
+
                     continue
 
-        except Exception:
+
+        except Exception as error:
+
+            print(
+                "Selector error:",
+                error
+            )
+
             continue
 
 
-    print("Could not open reviews")
+    # --------------------------------------------------
+    # XPATH FALLBACK
+    # --------------------------------------------------
+
+    xpath_list = [
+
+        "//button[contains("
+        "translate(.,"
+        "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+        "'abcdefghijklmnopqrstuvwxyz'),"
+        "'review')]",
+
+        "//button[contains("
+        "translate(@aria-label,"
+        "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+        "'abcdefghijklmnopqrstuvwxyz'),"
+        "'review')]",
+
+        "//div[@role='button' and contains("
+        "translate(@aria-label,"
+        "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
+        "'abcdefghijklmnopqrstuvwxyz'),"
+        "'review')]"
+    ]
+
+
+    for xpath in xpath_list:
+
+        try:
+
+            elements = driver.find_elements(
+                By.XPATH,
+                xpath
+            )
+
+            print(
+                "XPath:",
+                xpath,
+                "Found:",
+                len(elements)
+            )
+
+
+            for element in elements:
+
+                try:
+
+                    if not element.is_displayed():
+                        continue
+
+
+                    driver.execute_script(
+                        """
+                        arguments[0].scrollIntoView({
+                            block: 'center'
+                        });
+                        """,
+                        element
+                    )
+
+                    time.sleep(1)
+
+
+                    driver.execute_script(
+                        "arguments[0].click();",
+                        element
+                    )
+
+                    print(
+                        "Review button clicked using XPath"
+                    )
+
+                    time.sleep(4)
+
+
+                    review_elements = driver.find_elements(
+                        By.CSS_SELECTOR,
+                        'div[data-review-id], div.jftiEf'
+                    )
+
+
+                    print(
+                        "Review elements after XPath click:",
+                        len(review_elements)
+                    )
+
+
+                    if review_elements:
+                        return True
+
+
+                except Exception as error:
+
+                    print(
+                        "XPath click error:",
+                        error
+                    )
+
+                    continue
+
+
+        except Exception as error:
+
+            print(
+                "XPath error:",
+                error
+            )
+
+
+    print(
+        "Could not open reviews"
+    )
 
     return False
 
 
-# ============================================================
-# GET REVIEWER NAME
-# ============================================================
+# --------------------------------------------------
+# REVIEWER NAME
+# --------------------------------------------------
 
 def get_reviewer_name(review):
 
     selectors = [
+
         ".d4r55",
-        ".WNxzHc"
+
+        ".WNxzHc",
+
+        '[class*="d4r55"]',
+
+        '[class*="WNxzHc"]'
     ]
 
 
@@ -329,90 +540,84 @@ def get_reviewer_name(review):
     return "Anonymous"
 
 
-# ============================================================
-# GET REVIEW RATING
-# ============================================================
+# --------------------------------------------------
+# REVIEW RATING
+# --------------------------------------------------
 
 def get_review_rating(review):
 
-    # Method 1
-    try:
+    selectors = [
 
-        element = review.find_element(
-            By.CSS_SELECTOR,
-            "span.kvMYJc"
-        )
+        "span.kvMYJc",
 
-        aria = element.get_attribute(
-            "aria-label"
-        )
+        '[role="img"]',
 
-        if aria:
+        '[aria-label*="star" i]',
 
-            match = re.search(
-                r"(\d+(?:\.\d+)?)",
-                aria
+        'span[aria-label*="star" i]'
+    ]
+
+
+    for selector in selectors:
+
+        try:
+
+            elements = review.find_elements(
+                By.CSS_SELECTOR,
+                selector
             )
 
-            if match:
 
-                value = match.group(1)
+            for element in elements:
 
-                if value == "1":
-                    return "1 star"
+                aria = element.get_attribute(
+                    "aria-label"
+                )
 
-                return value + " stars"
-
-    except Exception:
-        pass
+                if not aria:
+                    continue
 
 
-    # Method 2
-    try:
+                if "star" not in aria.lower():
+                    continue
 
-        elements = review.find_elements(
-            By.CSS_SELECTOR,
-            '[role="img"]'
-        )
-
-        for element in elements:
-
-            aria = element.get_attribute(
-                "aria-label"
-            )
-
-            if aria and "star" in aria.lower():
 
                 match = re.search(
                     r"(\d+(?:\.\d+)?)",
                     aria
                 )
 
+
                 if match:
 
-                    value = match.group(1)
+                    return (
+                        match.group(1)
+                        + " stars"
+                    )
 
-                    if value == "1":
-                        return "1 star"
 
-                    return value + " stars"
-
-    except Exception:
-        pass
+        except Exception:
+            continue
 
 
     return None
 
 
-# ============================================================
-# GET REVIEW TEXT
-# ============================================================
+# --------------------------------------------------
+# REVIEW TEXT
+# --------------------------------------------------
 
 def get_review_text(review):
 
     selectors = [
+
         ".wiI7pd",
-        ".MyEned"
+
+        ".MyEned",
+
+        '[class*="wiI7pd"]',
+
+        '[class*="MyEned"]'
     ]
 
 
@@ -439,16 +644,42 @@ def get_review_text(review):
     return ""
 
 
-# ============================================================
+# --------------------------------------------------
 # EXTRACT REVIEWS
-# ============================================================
+# --------------------------------------------------
 
-def extract_reviews(driver, reviews, collected):
+def extract_reviews(
+    driver,
+    reviews,
+    collected
+):
 
-    review_elements = driver.find_elements(
-        By.CSS_SELECTOR,
+    selectors = [
+
+        "div[data-review-id]",
+
         "div.jftiEf"
-    )
+    ]
+
+
+    review_elements = []
+
+
+    for selector in selectors:
+
+        try:
+
+            review_elements = driver.find_elements(
+                By.CSS_SELECTOR,
+                selector
+            )
+
+
+            if review_elements:
+                break
+
+        except Exception:
+            continue
 
 
     print(
@@ -478,8 +709,6 @@ def extract_reviews(driver, reviews, collected):
                 continue
 
 
-            # Unique review
-
             key = (
                 reviewer_name
                 + "|"
@@ -504,31 +733,63 @@ def extract_reviews(driver, reviews, collected):
 
                 "review_text":
                     review_text
-
             })
+
+
+            print(
+                "Review collected:",
+                reviewer_name
+            )
 
 
         except Exception as error:
 
             print(
-                "Review error:",
+                "Review extraction error:",
                 error
             )
 
 
-# ============================================================
+# --------------------------------------------------
 # FIND REVIEW SCROLL CONTAINER
-# ============================================================
+# --------------------------------------------------
 
 def find_scroll_container(driver):
 
-    reviews = driver.find_elements(
-        By.CSS_SELECTOR,
+    selectors = [
+
+        "div[data-review-id]",
+
         "div.jftiEf"
-    )
+    ]
+
+
+    reviews = []
+
+
+    for selector in selectors:
+
+        try:
+
+            reviews = driver.find_elements(
+                By.CSS_SELECTOR,
+                selector
+            )
+
+
+            if reviews:
+                break
+
+        except Exception:
+            continue
 
 
     if not reviews:
+
+        print(
+            "No review elements for scroll container"
+        )
+
         return None
 
 
@@ -538,7 +799,6 @@ def find_scroll_container(driver):
     try:
 
         container = driver.execute_script(
-
             """
             let element = arguments[0];
 
@@ -546,57 +806,58 @@ def find_scroll_container(driver):
 
                 if (
                     element.scrollHeight >
-                    element.clientHeight
+                    element.clientHeight + 100
                 ) {
-
                     return element;
-
                 }
 
                 element = element.parentElement;
-
             }
 
             return null;
             """,
-
             first_review
         )
 
 
         if container:
+
+            print(
+                "Review scroll container found"
+            )
+
             return container
 
-    except Exception:
-        pass
+
+    except Exception as error:
+
+        print(
+            "Scroll container error:",
+            error
+        )
 
 
     return None
 
 
-# ============================================================
+# --------------------------------------------------
 # SCRAPE REVIEWS
-# ============================================================
+# --------------------------------------------------
 
 def scrape_reviews(driver):
 
     reviews = []
+
     collected = set()
 
 
-    # --------------------------------------------------------
-    # OPEN REVIEWS
-    # --------------------------------------------------------
-
+    # Open review section
     if not open_reviews(driver):
 
         return reviews
 
 
-    # --------------------------------------------------------
-    # WAIT FOR REVIEWS
-    # --------------------------------------------------------
-
+    # Wait for reviews
     try:
 
         WebDriverWait(
@@ -607,10 +868,9 @@ def scrape_reviews(driver):
             EC.presence_of_element_located(
                 (
                     By.CSS_SELECTOR,
-                    "div.jftiEf"
+                    'div[data-review-id], div.jftiEf'
                 )
             )
-
         )
 
     except Exception:
@@ -622,19 +882,13 @@ def scrape_reviews(driver):
         return reviews
 
 
-    # --------------------------------------------------------
-    # SCROLL CONTAINER
-    # --------------------------------------------------------
-
+    # Find scroll container
     scrollable = find_scroll_container(
         driver
     )
 
 
-    # --------------------------------------------------------
-    # INITIAL REVIEWS
-    # --------------------------------------------------------
-
+    # First extraction
     extract_reviews(
         driver,
         reviews,
@@ -642,13 +896,13 @@ def scrape_reviews(driver):
     )
 
 
-    # --------------------------------------------------------
-    # SCROLL REVIEWS
-    # --------------------------------------------------------
+    # --------------------------------------------------
+    # FIVE SCROLLS
+    # --------------------------------------------------
 
     if scrollable:
 
-        for i in range(15):
+        for i in range(5):
 
             print(
                 "Scroll:",
@@ -658,16 +912,20 @@ def scrape_reviews(driver):
 
             try:
 
-                driver.execute_script(
+                old_count = len(
+                    reviews
+                )
 
+
+                driver.execute_script(
                     """
                     arguments[0].scrollTop =
-                    arguments[0].scrollHeight;
+                    arguments[0].scrollTop +
+                    arguments[0].clientHeight;
                     """,
-
                     scrollable
-
                 )
+
 
                 time.sleep(2)
 
@@ -677,6 +935,17 @@ def scrape_reviews(driver):
                     reviews,
                     collected
                 )
+
+
+                print(
+                    "Total collected:",
+                    len(reviews)
+                )
+
+
+                if len(reviews) == old_count:
+
+                    time.sleep(1)
 
 
             except Exception as error:
@@ -698,20 +967,13 @@ def scrape_reviews(driver):
     return reviews
 
 
-# ============================================================
-# MAIN GOOGLE MAPS SCRAPER
-# ============================================================
+# --------------------------------------------------
+# GOOGLE MAPS SCRAPER
+# --------------------------------------------------
 
 def get_place_from_google(place_name):
 
-    # --------------------------------------------------------
-    # CHROME
-    # --------------------------------------------------------
-
     options = Options()
-
-    # First test without headless
-    # After working, uncomment this line
 
     options.add_argument(
         "--headless=new"
@@ -741,10 +1003,6 @@ def get_place_from_google(place_name):
 
     try:
 
-        # ====================================================
-        # SEARCH GOOGLE MAPS
-        # ====================================================
-
         search_name = place_name.replace(
             " ",
             "+"
@@ -765,22 +1023,20 @@ def get_place_from_google(place_name):
 
         driver.get(url)
 
+
         time.sleep(6)
 
 
-        # ====================================================
-        # CLICK FIRST RESULT
-        # ====================================================
+        # --------------------------------------------------
+        # SELECT FIRST SEARCH RESULT
+        # --------------------------------------------------
 
         try:
 
             results = driver.find_elements(
-
                 By.CSS_SELECTOR,
-
                 'div[role="feed"] '
                 'a[href*="/maps/place/"]'
-
             )
 
 
@@ -808,9 +1064,9 @@ def get_place_from_google(place_name):
             )
 
 
-        # ====================================================
-        # PLACE NAME
-        # ====================================================
+        # --------------------------------------------------
+        # BASIC PLACE DATA
+        # --------------------------------------------------
 
         name = get_place_name(
             driver,
@@ -818,36 +1074,24 @@ def get_place_from_google(place_name):
         )
 
 
-        # ====================================================
-        # ADDRESS
-        # ====================================================
-
         address = get_address(
             driver
         )
 
-
-        # ====================================================
-        # RATING
-        # ====================================================
 
         rating_value = get_rating(
             driver
         )
 
 
-        # ====================================================
-        # REVIEW COUNT
-        # ====================================================
-
         review_count = get_review_count(
             driver
         )
 
 
-        # ====================================================
-        # FINAL RATING
-        # ====================================================
+        # --------------------------------------------------
+        # BUILD RATING
+        # --------------------------------------------------
 
         rating = None
 
@@ -868,18 +1112,18 @@ def get_place_from_google(place_name):
                 rating = rating_value
 
 
-        # ====================================================
-        # REVIEWS
-        # ====================================================
+        # --------------------------------------------------
+        # SCRAPE REVIEWS
+        # --------------------------------------------------
 
         reviews = scrape_reviews(
             driver
         )
 
 
-        # ====================================================
-        # FINAL JSON
-        # ====================================================
+        # --------------------------------------------------
+        # FINAL RESPONSE
+        # --------------------------------------------------
 
         return {
 
@@ -896,9 +1140,7 @@ def get_place_from_google(place_name):
 
                 "reviews":
                     reviews
-
             }
-
         }
 
 
@@ -907,22 +1149,23 @@ def get_place_from_google(place_name):
         driver.quit()
 
 
-# ============================================================
-# HOME
-# ============================================================
+# --------------------------------------------------
+# HOME API
+# --------------------------------------------------
 
 @app.get("/")
 async def home():
 
     return {
+
         "message":
             "Google Maps Scraping API is running"
     }
 
 
-# ============================================================
+# --------------------------------------------------
 # PLACE API
-# ============================================================
+# --------------------------------------------------
 
 @app.get(
     "/place",
@@ -951,17 +1194,21 @@ async def get_place(
         )
 
 
-# ============================================================
-# RUN
-# ============================================================
+# --------------------------------------------------
+# LOCAL RUN
+# --------------------------------------------------
 
 if __name__ == "__main__":
 
     import uvicorn
 
     uvicorn.run(
+
         "main:app",
+
         host="127.0.0.1",
+
         port=8000,
+
         reload=True
     )
