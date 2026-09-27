@@ -21,7 +21,6 @@ def scrape_google_maps(place_name: str):
     driver = None
 
     try:
-
         print("Starting Google Maps scraper...", flush=True)
 
         options = Options()
@@ -62,6 +61,7 @@ def scrape_google_maps(place_name: str):
 
         time.sleep(6)
 
+        # Click first Google Maps result
         try:
 
             first_result = WebDriverWait(
@@ -91,13 +91,19 @@ def scrape_google_maps(place_name: str):
                 flush=True
             )
 
+        # -------------------------
+        # PLACE NAME
+        # -------------------------
+
         result_place_name = place_name
 
-        for selector in [
+        name_selectors = [
             "h1.DUwDvf",
             "h1.fontHeadlineLarge",
             "h1"
-        ]:
+        ]
+
+        for selector in name_selectors:
 
             try:
 
@@ -117,13 +123,19 @@ def scrape_google_maps(place_name: str):
             except Exception:
                 continue
 
+        # -------------------------
+        # ADDRESS
+        # -------------------------
+
         address = ""
 
-        for selector in [
+        address_selectors = [
             'button[data-item-id="address"]',
             'button[aria-label*="Address"]',
             'div[data-item-id="address"]'
-        ]:
+        ]
+
+        for selector in address_selectors:
 
             try:
 
@@ -140,13 +152,19 @@ def scrape_google_maps(place_name: str):
             except Exception:
                 continue
 
+        # -------------------------
+        # RATING
+        # -------------------------
+
         rating = ""
 
-        for selector in [
+        rating_selectors = [
             'div.F7nice span[aria-hidden="true"]',
             'span.ceNzKf',
             'div[role="img"][aria-label*="star"]'
-        ]:
+        ]
+
+        for selector in rating_selectors:
 
             try:
 
@@ -170,6 +188,10 @@ def scrape_google_maps(place_name: str):
 
             except Exception:
                 continue
+
+        # -------------------------
+        # REVIEW COUNT
+        # -------------------------
 
         review_selectors = [
             'button[jsaction*="pane.reviewChart.moreReviews"]',
@@ -209,6 +231,10 @@ def scrape_google_maps(place_name: str):
             except Exception:
                 continue
 
+        # -------------------------
+        # SCROLL REVIEWS
+        # -------------------------
+
         print(
             "Scrolling reviews...",
             flush=True
@@ -236,6 +262,10 @@ def scrape_google_maps(place_name: str):
             except Exception:
                 pass
 
+        # -------------------------
+        # GET REVIEWS
+        # -------------------------
+
         review_elements = driver.find_elements(
             By.CSS_SELECTOR,
             'div[data-review-id], div.jftiEf'
@@ -254,14 +284,17 @@ def scrape_google_maps(place_name: str):
 
             try:
 
+                # Reviewer name
                 reviewer = ""
 
-                for selector in [
+                reviewer_selectors = [
                     ".d4r55",
                     ".WNxzHc",
                     '[class*="d4r55"]',
                     '[class*="WNxzHc"]'
-                ]:
+                ]
+
+                for selector in reviewer_selectors:
 
                     try:
 
@@ -280,14 +313,17 @@ def scrape_google_maps(place_name: str):
                     except Exception:
                         continue
 
+                # Review rating
                 review_rating = ""
 
-                for selector in [
+                review_rating_selectors = [
                     "span.kvMYJc",
                     '[role="img"]',
                     '[aria-label*="star" i]',
                     'span[aria-label*="star" i]'
-                ]:
+                ]
+
+                for selector in review_rating_selectors:
 
                     try:
 
@@ -309,14 +345,17 @@ def scrape_google_maps(place_name: str):
                     except Exception:
                         continue
 
+                # Review text
                 review_text = ""
 
-                for selector in [
+                review_text_selectors = [
                     ".wiI7pd",
                     ".MyEned",
                     '[class*="wiI7pd"]',
                     '[class*="MyEned"]'
-                ]:
+                ]
+
+                for selector in review_text_selectors:
 
                     try:
 
@@ -360,13 +399,24 @@ def scrape_google_maps(place_name: str):
             except Exception:
                 continue
 
-        return {
+        # -------------------------
+        # FINAL RESPONSE
+        # -------------------------
+
+        result = {
             "place": result_place_name,
             "address": address,
             "rating": rating,
             "review_count": review_count,
             "reviews": reviews
         }
+
+        print(
+            "Response prepared successfully",
+            flush=True
+        )
+
+        return result
 
     except Exception as error:
 
@@ -384,6 +434,11 @@ def scrape_google_maps(place_name: str):
 
             try:
 
+                print(
+                    "Closing Chrome...",
+                    flush=True
+                )
+
                 driver.quit()
 
                 print(
@@ -391,9 +446,22 @@ def scrape_google_maps(place_name: str):
                     flush=True
                 )
 
-            except Exception:
-                pass
+            except Exception as error:
 
+                print(
+                    "Chrome close error:",
+                    error,
+                    flush=True
+                )
+
+            finally:
+
+                driver = None
+
+
+# -------------------------
+# HOME
+# -------------------------
 
 @app.get("/")
 def home():
@@ -402,6 +470,10 @@ def home():
         "message": "Google Maps Scraping API is running"
     }
 
+
+# -------------------------
+# PLACE API
+# -------------------------
 
 @app.get("/place")
 def get_place(name: str):
@@ -428,6 +500,10 @@ def get_place(name: str):
             detail=str(error)
         )
 
+
+# -------------------------
+# LOCAL RUN
+# -------------------------
 
 if __name__ == "__main__":
 
