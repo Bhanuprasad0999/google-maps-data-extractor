@@ -1,5 +1,6 @@
 import time
 import re
+import os
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -7,14 +8,15 @@ from typing import List, Optional
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
-# --------------------------------------------------
+# ==================================================
 # FASTAPI APP
-# --------------------------------------------------
+# ==================================================
 
 app = FastAPI(
     title="Google Maps Scraping API",
@@ -22,9 +24,9 @@ app = FastAPI(
 )
 
 
-# --------------------------------------------------
+# ==================================================
 # RESPONSE MODELS
-# --------------------------------------------------
+# ==================================================
 
 class Review(BaseModel):
     reviewer_name: str
@@ -43,11 +45,12 @@ class PlaceResponse(BaseModel):
     place: PlaceData
 
 
-# --------------------------------------------------
+# ==================================================
 # CLEAN TEXT
-# --------------------------------------------------
+# ==================================================
 
 def clean_text(text):
+
     if not text:
         return None
 
@@ -57,13 +60,14 @@ def clean_text(text):
     return text.strip()
 
 
-# --------------------------------------------------
+# ==================================================
 # PLACE NAME
-# --------------------------------------------------
+# ==================================================
 
 def get_place_name(driver, search_name):
 
     try:
+
         element = WebDriverWait(
             driver,
             15
@@ -81,6 +85,7 @@ def get_place_name(driver, search_name):
     except Exception:
 
         try:
+
             element = driver.find_element(
                 By.TAG_NAME,
                 "h1"
@@ -89,12 +94,13 @@ def get_place_name(driver, search_name):
             return clean_text(element.text)
 
         except Exception:
+
             return search_name
 
 
-# --------------------------------------------------
+# ==================================================
 # ADDRESS
-# --------------------------------------------------
+# ==================================================
 
 def get_address(driver):
 
@@ -107,6 +113,7 @@ def get_address(driver):
     for selector in selectors:
 
         try:
+
             element = driver.find_element(
                 By.CSS_SELECTOR,
                 selector
@@ -123,9 +130,9 @@ def get_address(driver):
     return None
 
 
-# --------------------------------------------------
+# ==================================================
 # RATING
-# --------------------------------------------------
+# ==================================================
 
 def get_rating(driver):
 
@@ -146,9 +153,12 @@ def get_rating(driver):
 
             for element in elements:
 
-                text = clean_text(element.text)
+                text = clean_text(
+                    element.text
+                )
 
                 if text:
+
                     match = re.search(
                         r"(\d+(?:\.\d+)?)",
                         text
@@ -177,13 +187,12 @@ def get_rating(driver):
     return None
 
 
-# --------------------------------------------------
+# ==================================================
 # REVIEW COUNT
-# --------------------------------------------------
+# ==================================================
 
 def get_review_count(driver):
 
-    # Method 1
     try:
 
         buttons = driver.find_elements(
@@ -220,7 +229,6 @@ def get_review_count(driver):
         pass
 
 
-    # Method 2
     try:
 
         elements = driver.find_elements(
@@ -252,17 +260,19 @@ def get_review_count(driver):
     except Exception:
         pass
 
-
     return None
 
 
-# --------------------------------------------------
+# ==================================================
 # OPEN REVIEWS
-# --------------------------------------------------
+# ==================================================
 
 def open_reviews(driver):
 
-    print("Trying to open reviews...")
+    print(
+        "Trying to open reviews...",
+        flush=True
+    )
 
     selectors = [
 
@@ -295,7 +305,8 @@ def open_reviews(driver):
                 "Selector:",
                 selector,
                 "Found:",
-                len(elements)
+                len(elements),
+                flush=True
             )
 
 
@@ -320,7 +331,8 @@ def open_reviews(driver):
                         "aria=",
                         aria,
                         "text=",
-                        text
+                        text,
+                        flush=True
                     )
 
 
@@ -342,7 +354,8 @@ def open_reviews(driver):
                     )
 
                     print(
-                        "Review button clicked"
+                        "Review button clicked",
+                        flush=True
                     )
 
                     time.sleep(4)
@@ -353,9 +366,11 @@ def open_reviews(driver):
                         'div[data-review-id], div.jftiEf'
                     )
 
+
                     print(
                         "Review elements after click:",
-                        len(review_elements)
+                        len(review_elements),
+                        flush=True
                     )
 
 
@@ -367,152 +382,38 @@ def open_reviews(driver):
 
                     print(
                         "Click error:",
-                        error
+                        error,
+                        flush=True
                     )
-
-                    continue
 
 
         except Exception as error:
 
             print(
                 "Selector error:",
-                error
-            )
-
-            continue
-
-
-    # --------------------------------------------------
-    # XPATH FALLBACK
-    # --------------------------------------------------
-
-    xpath_list = [
-
-        "//button[contains("
-        "translate(.,"
-        "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
-        "'abcdefghijklmnopqrstuvwxyz'),"
-        "'review')]",
-
-        "//button[contains("
-        "translate(@aria-label,"
-        "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
-        "'abcdefghijklmnopqrstuvwxyz'),"
-        "'review')]",
-
-        "//div[@role='button' and contains("
-        "translate(@aria-label,"
-        "'ABCDEFGHIJKLMNOPQRSTUVWXYZ',"
-        "'abcdefghijklmnopqrstuvwxyz'),"
-        "'review')]"
-    ]
-
-
-    for xpath in xpath_list:
-
-        try:
-
-            elements = driver.find_elements(
-                By.XPATH,
-                xpath
-            )
-
-            print(
-                "XPath:",
-                xpath,
-                "Found:",
-                len(elements)
-            )
-
-
-            for element in elements:
-
-                try:
-
-                    if not element.is_displayed():
-                        continue
-
-
-                    driver.execute_script(
-                        """
-                        arguments[0].scrollIntoView({
-                            block: 'center'
-                        });
-                        """,
-                        element
-                    )
-
-                    time.sleep(1)
-
-
-                    driver.execute_script(
-                        "arguments[0].click();",
-                        element
-                    )
-
-                    print(
-                        "Review button clicked using XPath"
-                    )
-
-                    time.sleep(4)
-
-
-                    review_elements = driver.find_elements(
-                        By.CSS_SELECTOR,
-                        'div[data-review-id], div.jftiEf'
-                    )
-
-
-                    print(
-                        "Review elements after XPath click:",
-                        len(review_elements)
-                    )
-
-
-                    if review_elements:
-                        return True
-
-
-                except Exception as error:
-
-                    print(
-                        "XPath click error:",
-                        error
-                    )
-
-                    continue
-
-
-        except Exception as error:
-
-            print(
-                "XPath error:",
-                error
+                error,
+                flush=True
             )
 
 
     print(
-        "Could not open reviews"
+        "Could not open reviews",
+        flush=True
     )
 
     return False
 
 
-# --------------------------------------------------
+# ==================================================
 # REVIEWER NAME
-# --------------------------------------------------
+# ==================================================
 
 def get_reviewer_name(review):
 
     selectors = [
-
         ".d4r55",
-
         ".WNxzHc",
-
         '[class*="d4r55"]',
-
         '[class*="WNxzHc"]'
     ]
 
@@ -540,20 +441,16 @@ def get_reviewer_name(review):
     return "Anonymous"
 
 
-# --------------------------------------------------
+# ==================================================
 # REVIEW RATING
-# --------------------------------------------------
+# ==================================================
 
 def get_review_rating(review):
 
     selectors = [
-
         "span.kvMYJc",
-
         '[role="img"]',
-
         '[aria-label*="star" i]',
-
         'span[aria-label*="star" i]'
     ]
 
@@ -603,20 +500,16 @@ def get_review_rating(review):
     return None
 
 
-# --------------------------------------------------
+# ==================================================
 # REVIEW TEXT
-# --------------------------------------------------
+# ==================================================
 
 def get_review_text(review):
 
     selectors = [
-
         ".wiI7pd",
-
         ".MyEned",
-
         '[class*="wiI7pd"]',
-
         '[class*="MyEned"]'
     ]
 
@@ -644,9 +537,9 @@ def get_review_text(review):
     return ""
 
 
-# --------------------------------------------------
+# ==================================================
 # EXTRACT REVIEWS
-# --------------------------------------------------
+# ==================================================
 
 def extract_reviews(
     driver,
@@ -655,9 +548,7 @@ def extract_reviews(
 ):
 
     selectors = [
-
         "div[data-review-id]",
-
         "div.jftiEf"
     ]
 
@@ -674,7 +565,6 @@ def extract_reviews(
                 selector
             )
 
-
             if review_elements:
                 break
 
@@ -684,7 +574,8 @@ def extract_reviews(
 
     print(
         "Reviews currently loaded:",
-        len(review_elements)
+        len(review_elements),
+        flush=True
     )
 
 
@@ -738,7 +629,8 @@ def extract_reviews(
 
             print(
                 "Review collected:",
-                reviewer_name
+                reviewer_name,
+                flush=True
             )
 
 
@@ -746,20 +638,19 @@ def extract_reviews(
 
             print(
                 "Review extraction error:",
-                error
+                error,
+                flush=True
             )
 
 
-# --------------------------------------------------
-# FIND REVIEW SCROLL CONTAINER
-# --------------------------------------------------
+# ==================================================
+# FIND SCROLL CONTAINER
+# ==================================================
 
 def find_scroll_container(driver):
 
     selectors = [
-
         "div[data-review-id]",
-
         "div.jftiEf"
     ]
 
@@ -776,7 +667,6 @@ def find_scroll_container(driver):
                 selector
             )
 
-
             if reviews:
                 break
 
@@ -787,7 +677,8 @@ def find_scroll_container(driver):
     if not reviews:
 
         print(
-            "No review elements for scroll container"
+            "No review elements for scroll container",
+            flush=True
         )
 
         return None
@@ -823,7 +714,8 @@ def find_scroll_container(driver):
         if container:
 
             print(
-                "Review scroll container found"
+                "Review scroll container found",
+                flush=True
             )
 
             return container
@@ -833,31 +725,40 @@ def find_scroll_container(driver):
 
         print(
             "Scroll container error:",
-            error
+            error,
+            flush=True
         )
 
 
     return None
 
 
-# --------------------------------------------------
+# ==================================================
 # SCRAPE REVIEWS
-# --------------------------------------------------
+# ==================================================
 
 def scrape_reviews(driver):
 
     reviews = []
-
     collected = set()
 
 
-    # Open review section
+    print(
+        "Starting review scraping...",
+        flush=True
+    )
+
+
     if not open_reviews(driver):
+
+        print(
+            "Review section could not be opened",
+            flush=True
+        )
 
         return reviews
 
 
-    # Wait for reviews
     try:
 
         WebDriverWait(
@@ -873,22 +774,22 @@ def scrape_reviews(driver):
             )
         )
 
+
     except Exception:
 
         print(
-            "No reviews found"
+            "No reviews found after opening review section",
+            flush=True
         )
 
         return reviews
 
 
-    # Find scroll container
     scrollable = find_scroll_container(
         driver
     )
 
 
-    # First extraction
     extract_reviews(
         driver,
         reviews,
@@ -896,9 +797,9 @@ def scrape_reviews(driver):
     )
 
 
-    # --------------------------------------------------
+    # ==================================================
     # FIVE SCROLLS
-    # --------------------------------------------------
+    # ==================================================
 
     if scrollable:
 
@@ -906,7 +807,8 @@ def scrape_reviews(driver):
 
             print(
                 "Scroll:",
-                i + 1
+                i + 1,
+                flush=True
             )
 
 
@@ -939,7 +841,8 @@ def scrape_reviews(driver):
 
                 print(
                     "Total collected:",
-                    len(reviews)
+                    len(reviews),
+                    flush=True
                 )
 
 
@@ -952,7 +855,8 @@ def scrape_reviews(driver):
 
                 print(
                     "Scroll error:",
-                    error
+                    error,
+                    flush=True
                 )
 
                 break
@@ -960,20 +864,41 @@ def scrape_reviews(driver):
 
     print(
         "TOTAL REVIEWS:",
-        len(reviews)
+        len(reviews),
+        flush=True
     )
 
 
     return reviews
 
 
-# --------------------------------------------------
+# ==================================================
 # GOOGLE MAPS SCRAPER
-# --------------------------------------------------
+# ==================================================
 
 def get_place_from_google(place_name):
 
+    print(
+        "Starting Google Maps scraper...",
+        flush=True
+    )
+
+
     options = Options()
+
+
+    # ==================================================
+    # CHROME SETTINGS
+    # ==================================================
+
+    # Render / Docker uses Chrome installed at this path.
+    # Windows uses the normal installed Chrome automatically.
+    if os.name != "nt":
+
+        options.binary_location = (
+            "/usr/local/bin/google-chrome"
+        )
+
 
     options.add_argument(
         "--headless=new"
@@ -995,13 +920,73 @@ def get_place_from_google(place_name):
         "--window-size=1920,1080"
     )
 
+    options.add_argument(
+        "--disable-blink-features=AutomationControlled"
+    )
 
-    driver = webdriver.Chrome(
-        options=options
+    options.add_argument(
+        "--disable-extensions"
+    )
+
+    options.add_argument(
+        "--disable-software-rasterizer"
+    )
+
+
+    # ==================================================
+    # START CHROME
+    # ==================================================
+
+    print(
+        "Starting Chrome...",
+        flush=True
     )
 
 
     try:
+
+        # Windows local
+        if os.name == "nt":
+
+            driver = webdriver.Chrome(
+                options=options
+            )
+
+        # Render / Docker Linux
+        else:
+
+            driver = webdriver.Chrome(
+
+                service=Service(
+                    "/usr/local/bin/chromedriver"
+                ),
+
+                options=options
+            )
+
+
+        print(
+            "Chrome started successfully",
+            flush=True
+        )
+
+
+    except Exception as error:
+
+        print(
+            "Chrome startup failed:",
+            error,
+            flush=True
+        )
+
+        raise
+
+
+    try:
+
+        # ==================================================
+        # GOOGLE MAPS URL
+        # ==================================================
 
         search_name = place_name.replace(
             " ",
@@ -1016,20 +1001,27 @@ def get_place_from_google(place_name):
 
 
         print(
-            "Opening:",
-            url
+            "Opening Google Maps:",
+            url,
+            flush=True
         )
 
 
         driver.get(url)
 
 
+        print(
+            "Google Maps page opened",
+            flush=True
+        )
+
+
         time.sleep(6)
 
 
-        # --------------------------------------------------
+        # ==================================================
         # SELECT FIRST SEARCH RESULT
-        # --------------------------------------------------
+        # ==================================================
 
         try:
 
@@ -1042,7 +1034,8 @@ def get_place_from_google(place_name):
 
             print(
                 "Search results:",
-                len(results)
+                len(results),
+                flush=True
             )
 
 
@@ -1053,20 +1046,34 @@ def get_place_from_google(place_name):
                     results[0]
                 )
 
+
+                print(
+                    "First search result clicked",
+                    flush=True
+                )
+
+
                 time.sleep(5)
 
 
         except Exception as error:
 
             print(
-                "Result error:",
-                error
+                "Result selection error:",
+                error,
+                flush=True
             )
 
 
-        # --------------------------------------------------
-        # BASIC PLACE DATA
-        # --------------------------------------------------
+        # ==================================================
+        # PLACE INFORMATION
+        # ==================================================
+
+        print(
+            "Getting place information...",
+            flush=True
+        )
+
 
         name = get_place_name(
             driver,
@@ -1089,9 +1096,37 @@ def get_place_from_google(place_name):
         )
 
 
-        # --------------------------------------------------
+        print(
+            "Place name:",
+            name,
+            flush=True
+        )
+
+
+        print(
+            "Address:",
+            address,
+            flush=True
+        )
+
+
+        print(
+            "Rating:",
+            rating_value,
+            flush=True
+        )
+
+
+        print(
+            "Review count:",
+            review_count,
+            flush=True
+        )
+
+
+        # ==================================================
         # BUILD RATING
-        # --------------------------------------------------
+        # ==================================================
 
         rating = None
 
@@ -1112,18 +1147,21 @@ def get_place_from_google(place_name):
                 rating = rating_value
 
 
-        # --------------------------------------------------
-        # SCRAPE REVIEWS
-        # --------------------------------------------------
+        # ==================================================
+        # REVIEWS
+        # ==================================================
 
         reviews = scrape_reviews(
             driver
         )
 
 
-        # --------------------------------------------------
-        # FINAL RESPONSE
-        # --------------------------------------------------
+        print(
+            "Final review count:",
+            len(reviews),
+            flush=True
+        )
+
 
         return {
 
@@ -1146,26 +1184,30 @@ def get_place_from_google(place_name):
 
     finally:
 
+        print(
+            "Closing Chrome...",
+            flush=True
+        )
+
         driver.quit()
 
 
-# --------------------------------------------------
+# ==================================================
 # HOME API
-# --------------------------------------------------
+# ==================================================
 
 @app.get("/")
 async def home():
 
     return {
-
         "message":
             "Google Maps Scraping API is running"
     }
 
 
-# --------------------------------------------------
+# ==================================================
 # PLACE API
-# --------------------------------------------------
+# ==================================================
 
 @app.get(
     "/place",
@@ -1175,18 +1217,37 @@ async def get_place(
     name: str = Query(...)
 ):
 
+    print(
+        "Received place request:",
+        name,
+        flush=True
+    )
+
+
     try:
 
-        return get_place_from_google(
+        result = get_place_from_google(
             name
         )
+
+
+        print(
+            "Request completed successfully",
+            flush=True
+        )
+
+
+        return result
+
 
     except Exception as error:
 
         print(
             "ERROR:",
-            error
+            error,
+            flush=True
         )
+
 
         raise HTTPException(
             status_code=500,
@@ -1194,21 +1255,17 @@ async def get_place(
         )
 
 
-# --------------------------------------------------
+# ==================================================
 # LOCAL RUN
-# --------------------------------------------------
+# ==================================================
 
 if __name__ == "__main__":
 
     import uvicorn
 
     uvicorn.run(
-
         "main:app",
-
         host="127.0.0.1",
-
         port=8000,
-
         reload=True
     )
