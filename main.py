@@ -23,7 +23,6 @@ def scrape_google_maps(place_name: str):
     driver = None
 
     try:
-
         print("Starting Google Maps scraper...", flush=True)
 
         options = Options()
@@ -49,7 +48,8 @@ def scrape_google_maps(place_name: str):
             "--disable-features=Translate,BackForwardCache"
         )
         options.add_argument("--window-size=1920,1080")
-        options.add_argument("--remote-debugging-port=9222")
+        options.add_argument("--remote-debugging-pipe")
+        options.add_argument("--user-data-dir=/tmp/chrome-user-data")
 
         print("Starting Chrome...", flush=True)
 
@@ -61,10 +61,13 @@ def scrape_google_maps(place_name: str):
 
         else:
 
+            service = Service(
+                executable_path="/usr/local/bin/chromedriver",
+                log_output="/tmp/chromedriver.log"
+            )
+
             driver = webdriver.Chrome(
-                service=Service(
-                    "/usr/local/bin/chromedriver"
-                ),
+                service=service,
                 options=options
             )
 
@@ -119,11 +122,13 @@ def scrape_google_maps(place_name: str):
 
         result_place_name = place_name
 
-        for selector in [
+        name_selectors = [
             "h1.DUwDvf",
             "h1.fontHeadlineLarge",
             "h1"
-        ]:
+        ]
+
+        for selector in name_selectors:
 
             try:
 
@@ -145,11 +150,13 @@ def scrape_google_maps(place_name: str):
 
         address = ""
 
-        for selector in [
+        address_selectors = [
             'button[data-item-id="address"]',
             'button[aria-label*="Address"]',
             'div[data-item-id="address"]'
-        ]:
+        ]
+
+        for selector in address_selectors:
 
             try:
 
@@ -168,11 +175,13 @@ def scrape_google_maps(place_name: str):
 
         rating = ""
 
-        for selector in [
+        rating_selectors = [
             'div.F7nice span[aria-hidden="true"]',
             'span.ceNzKf',
             'div[role="img"][aria-label*="star"]'
-        ]:
+        ]
+
+        for selector in rating_selectors:
 
             try:
 
@@ -282,12 +291,14 @@ def scrape_google_maps(place_name: str):
 
                 reviewer = ""
 
-                for selector in [
+                reviewer_selectors = [
                     ".d4r55",
                     ".WNxzHc",
                     '[class*="d4r55"]',
                     '[class*="WNxzHc"]'
-                ]:
+                ]
+
+                for selector in reviewer_selectors:
 
                     try:
 
@@ -308,12 +319,14 @@ def scrape_google_maps(place_name: str):
 
                 review_rating = ""
 
-                for selector in [
+                review_rating_selectors = [
                     "span.kvMYJc",
                     '[role="img"]',
                     '[aria-label*="star" i]',
                     'span[aria-label*="star" i]'
-                ]:
+                ]
+
+                for selector in review_rating_selectors:
 
                     try:
 
@@ -337,12 +350,14 @@ def scrape_google_maps(place_name: str):
 
                 review_text = ""
 
-                for selector in [
+                review_text_selectors = [
                     ".wiI7pd",
                     ".MyEned",
                     '[class*="wiI7pd"]',
                     '[class*="MyEned"]'
-                ]:
+                ]
+
+                for selector in review_text_selectors:
 
                     try:
 
