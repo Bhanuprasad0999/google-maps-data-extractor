@@ -62,54 +62,35 @@ for item in reversed(data["versions"]):
     driver_linux_url = None
 
     for download in chrome_downloads:
-
         if download["platform"] == "linux64":
             chrome_linux_url = download["url"]
             break
 
     for download in driver_downloads:
-
         if download["platform"] == "linux64":
             driver_linux_url = download["url"]
             break
 
     if chrome_linux_url and driver_linux_url:
-
         version = item["version"]
         chrome_url = chrome_linux_url
         driver_url = driver_linux_url
-
         break
-
 
 print("Chrome version:", version)
 print("Chrome URL:", chrome_url)
 print("ChromeDriver URL:", driver_url)
 
-
 # Download Chrome
-chrome_data = urllib.request.urlopen(
-    chrome_url
-).read()
+chrome_data = urllib.request.urlopen(chrome_url).read()
 
-
-with zipfile.ZipFile(
-    io.BytesIO(chrome_data)
-) as z:
-
+with zipfile.ZipFile(io.BytesIO(chrome_data)) as z:
     z.extractall("/opt")
 
-
 # Download ChromeDriver
-driver_data = urllib.request.urlopen(
-    driver_url
-).read()
+driver_data = urllib.request.urlopen(driver_url).read()
 
-
-with zipfile.ZipFile(
-    io.BytesIO(driver_data)
-) as z:
-
+with zipfile.ZipFile(io.BytesIO(driver_data)) as z:
     z.extractall("/opt")
 
 PY
@@ -119,30 +100,20 @@ PY
 # CREATE COMMAND LINKS
 # ==================================================
 
-RUN ln -s \
-    /opt/chrome-linux64/chrome \
-    /usr/local/bin/google-chrome
+RUN ln -s /opt/chrome-linux64/chrome /usr/local/bin/google-chrome
 
+RUN ln -s /opt/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
 
-RUN ln -s \
-    /opt/chromedriver-linux64/chromedriver \
-    /usr/local/bin/chromedriver
+RUN chmod +x /opt/chrome-linux64/chrome
 
-
-RUN chmod +x \
-    /opt/chrome-linux64/chrome
-
-
-RUN chmod +x \
-    /opt/chromedriver-linux64/chromedriver
+RUN chmod +x /opt/chromedriver-linux64/chromedriver
 
 
 # ==================================================
 # VERIFY CHROME INSTALLATION
 # ==================================================
 
-RUN google-chrome --version && \
-    chromedriver --version
+RUN google-chrome --version && chromedriver --version
 
 
 # ==================================================
@@ -151,14 +122,9 @@ RUN google-chrome --version && \
 
 WORKDIR /app
 
-
 COPY requirements.txt .
 
-
-RUN pip install \
-    --no-cache-dir \
-    -r requirements.txt
-
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
@@ -174,11 +140,4 @@ EXPOSE 8000
 # START FASTAPI
 # ==================================================
 
-CMD [
-    "uvicorn",
-    "main:app",
-    "--host",
-    "0.0.0.0",
-    "--port",
-    "8000"
-]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
