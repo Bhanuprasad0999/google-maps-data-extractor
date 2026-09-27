@@ -1,4 +1,3 @@
-import os
 import time
 from urllib.parse import quote_plus
 
@@ -6,7 +5,6 @@ from fastapi import FastAPI, HTTPException
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -23,12 +21,10 @@ def scrape_google_maps(place_name: str):
     driver = None
 
     try:
+
         print("Starting Google Maps scraper...", flush=True)
 
         options = Options()
-
-        if os.name != "nt":
-            options.binary_location = "/usr/local/bin/google-chrome"
 
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
@@ -36,40 +32,15 @@ def scrape_google_maps(place_name: str):
         options.add_argument("--disable-gpu")
         options.add_argument("--disable-software-rasterizer")
         options.add_argument("--disable-extensions")
-        options.add_argument("--disable-background-networking")
-        options.add_argument("--disable-background-timer-throttling")
-        options.add_argument("--disable-backgrounding-occluded-windows")
-        options.add_argument("--disable-breakpad")
-        options.add_argument("--disable-component-update")
-        options.add_argument("--disable-renderer-backgrounding")
         options.add_argument("--no-first-run")
         options.add_argument("--no-default-browser-check")
-        options.add_argument(
-            "--disable-features=Translate,BackForwardCache"
-        )
         options.add_argument("--window-size=1920,1080")
-        options.add_argument("--remote-debugging-pipe")
-        options.add_argument("--user-data-dir=/tmp/chrome-user-data")
 
         print("Starting Chrome...", flush=True)
 
-        if os.name == "nt":
-
-            driver = webdriver.Chrome(
-                options=options
-            )
-
-        else:
-
-            service = Service(
-                executable_path="/usr/local/bin/chromedriver",
-                log_output="/tmp/chromedriver.log"
-            )
-
-            driver = webdriver.Chrome(
-                service=service,
-                options=options
-            )
+        driver = webdriver.Chrome(
+            options=options
+        )
 
         print(
             "Chrome started successfully",
@@ -122,13 +93,11 @@ def scrape_google_maps(place_name: str):
 
         result_place_name = place_name
 
-        name_selectors = [
+        for selector in [
             "h1.DUwDvf",
             "h1.fontHeadlineLarge",
             "h1"
-        ]
-
-        for selector in name_selectors:
+        ]:
 
             try:
 
@@ -150,13 +119,11 @@ def scrape_google_maps(place_name: str):
 
         address = ""
 
-        address_selectors = [
+        for selector in [
             'button[data-item-id="address"]',
             'button[aria-label*="Address"]',
             'div[data-item-id="address"]'
-        ]
-
-        for selector in address_selectors:
+        ]:
 
             try:
 
@@ -175,13 +142,11 @@ def scrape_google_maps(place_name: str):
 
         rating = ""
 
-        rating_selectors = [
+        for selector in [
             'div.F7nice span[aria-hidden="true"]',
             'span.ceNzKf',
             'div[role="img"][aria-label*="star"]'
-        ]
-
-        for selector in rating_selectors:
+        ]:
 
             try:
 
@@ -291,14 +256,12 @@ def scrape_google_maps(place_name: str):
 
                 reviewer = ""
 
-                reviewer_selectors = [
+                for selector in [
                     ".d4r55",
                     ".WNxzHc",
                     '[class*="d4r55"]',
                     '[class*="WNxzHc"]'
-                ]
-
-                for selector in reviewer_selectors:
+                ]:
 
                     try:
 
@@ -319,14 +282,12 @@ def scrape_google_maps(place_name: str):
 
                 review_rating = ""
 
-                review_rating_selectors = [
+                for selector in [
                     "span.kvMYJc",
                     '[role="img"]',
                     '[aria-label*="star" i]',
                     'span[aria-label*="star" i]'
-                ]
-
-                for selector in review_rating_selectors:
+                ]:
 
                     try:
 
@@ -350,14 +311,12 @@ def scrape_google_maps(place_name: str):
 
                 review_text = ""
 
-                review_text_selectors = [
+                for selector in [
                     ".wiI7pd",
                     ".MyEned",
                     '[class*="wiI7pd"]',
                     '[class*="MyEned"]'
-                ]
-
-                for selector in review_text_selectors:
+                ]:
 
                     try:
 
