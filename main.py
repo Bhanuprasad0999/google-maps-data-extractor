@@ -1,10 +1,8 @@
-```python
 import os
 import time
 from urllib.parse import quote_plus
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -20,20 +18,13 @@ app = FastAPI(
 )
 
 
-class PlaceRequest(BaseModel):
-    place_name: str
-
-
 def scrape_google_maps(place_name: str):
 
     driver = None
 
     try:
-        print("Starting Google Maps scraper...", flush=True)
 
-        # ==============================================
-        # CHROME OPTIONS
-        # ==============================================
+        print("Starting Google Maps scraper...", flush=True)
 
         options = Options()
 
@@ -54,15 +45,13 @@ def scrape_google_maps(place_name: str):
         options.add_argument("--disable-renderer-backgrounding")
         options.add_argument("--no-first-run")
         options.add_argument("--no-default-browser-check")
-        options.add_argument("--disable-features=Translate,BackForwardCache")
+        options.add_argument(
+            "--disable-features=Translate,BackForwardCache"
+        )
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--remote-debugging-port=9222")
 
         print("Starting Chrome...", flush=True)
-
-        # ==============================================
-        # START CHROME
-        # ==============================================
 
         if os.name == "nt":
 
@@ -84,24 +73,20 @@ def scrape_google_maps(place_name: str):
             flush=True
         )
 
-        # ==============================================
-        # OPEN GOOGLE MAPS
-        # ==============================================
-
         url = (
             "https://www.google.com/maps/search/"
             + quote_plus(place_name)
         )
 
-        print("Opening:", url, flush=True)
+        print(
+            "Opening:",
+            url,
+            flush=True
+        )
 
         driver.get(url)
 
         time.sleep(6)
-
-        # ==============================================
-        # CLICK FIRST RESULT
-        # ==============================================
 
         try:
 
@@ -132,10 +117,6 @@ def scrape_google_maps(place_name: str):
                 flush=True
             )
 
-        # ==============================================
-        # PLACE NAME
-        # ==============================================
-
         result_place_name = place_name
 
         for selector in [
@@ -162,10 +143,6 @@ def scrape_google_maps(place_name: str):
             except Exception:
                 continue
 
-        # ==============================================
-        # ADDRESS
-        # ==============================================
-
         address = ""
 
         for selector in [
@@ -188,10 +165,6 @@ def scrape_google_maps(place_name: str):
 
             except Exception:
                 continue
-
-        # ==============================================
-        # RATING
-        # ==============================================
 
         rating = ""
 
@@ -224,10 +197,6 @@ def scrape_google_maps(place_name: str):
             except Exception:
                 continue
 
-        # ==============================================
-        # REVIEW BUTTON
-        # ==============================================
-
         review_selectors = [
             'button[jsaction*="pane.reviewChart.moreReviews"]',
             'button[aria-label*="reviews" i]',
@@ -252,7 +221,6 @@ def scrape_google_maps(place_name: str):
                 text = element.text.strip()
 
                 if text:
-
                     review_count = text
 
                 driver.execute_script(
@@ -267,10 +235,6 @@ def scrape_google_maps(place_name: str):
             except Exception:
                 continue
 
-        # ==============================================
-        # SCROLL REVIEWS
-        # ==============================================
-
         print(
             "Scrolling reviews...",
             flush=True
@@ -283,13 +247,12 @@ def scrape_google_maps(place_name: str):
                 driver.execute_script(
                     """
                     const feeds =
-                    document.querySelectorAll(
-                        'div[role="feed"]'
-                    );
+                        document.querySelectorAll(
+                            'div[role="feed"]'
+                        );
 
                     feeds.forEach(feed => {
-                        feed.scrollTop =
-                            feed.scrollHeight;
+                        feed.scrollTop = feed.scrollHeight;
                     });
                     """
                 )
@@ -298,10 +261,6 @@ def scrape_google_maps(place_name: str):
 
             except Exception:
                 pass
-
-        # ==============================================
-        # FIND REVIEWS
-        # ==============================================
 
         review_elements = driver.find_elements(
             By.CSS_SELECTOR,
@@ -316,10 +275,6 @@ def scrape_google_maps(place_name: str):
 
         reviews = []
         seen = set()
-
-        # ==============================================
-        # EXTRACT REVIEWS
-        # ==============================================
 
         for review in review_elements:
 
@@ -407,7 +362,9 @@ def scrape_google_maps(place_name: str):
                         continue
 
                 unique_key = (
-                    reviewer + "|" + review_text
+                    reviewer
+                    + "|"
+                    + review_text
                 )
 
                 if (
@@ -428,10 +385,6 @@ def scrape_google_maps(place_name: str):
 
             except Exception:
                 continue
-
-        # ==============================================
-        # RETURN RESULT
-        # ==============================================
 
         return {
             "place": result_place_name,
@@ -456,18 +409,17 @@ def scrape_google_maps(place_name: str):
         if driver:
 
             try:
+
                 driver.quit()
+
                 print(
                     "Chrome closed",
                     flush=True
                 )
+
             except Exception:
                 pass
 
-
-# ==============================================
-# HOME
-# ==============================================
 
 @app.get("/")
 def home():
@@ -476,10 +428,6 @@ def home():
         "message": "Google Maps Scraping API is running"
     }
 
-
-# ==============================================
-# PLACE API
-# ==============================================
 
 @app.get("/place")
 def get_place(name: str):
@@ -506,10 +454,6 @@ def get_place(name: str):
             detail=str(error)
         )
 
-
-# ==============================================
-# LOCAL RUN
-# ==============================================
 
 if __name__ == "__main__":
 
